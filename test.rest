@@ -1,0 +1,36 @@
+@baseUrl = http://localhost:3000
+@apiKey = change-me
+
+### Health (no API key needed)
+GET {{baseUrl}}/health
+
+### List
+GET {{baseUrl}}/api/orders
+X-API-Key: {{apiKey}}
+
+### Get one by primary key
+GET {{baseUrl}}/api/orders/1785211070999
+X-API-Key: {{apiKey}}
+
+### Exact-match filter
+GET {{baseUrl}}/api/orders?financialYear=1774928069228
+X-API-Key: {{apiKey}}
+
+### Pagination
+GET {{baseUrl}}/api/orders?page=2&limit=20
+X-API-Key: {{apiKey}}
+
+### Expect 401 (missing key)
+GET {{baseUrl}}/api/orders
+
+### Expect 404 (unknown model)
+GET {{baseUrl}}/api/nope
+X-API-Key: {{apiKey}}
+
+### Expect 400 (field not in policy.filters)
+GET {{baseUrl}}/api/orders?balance=100
+X-API-Key: {{apiKey}}
+
+### Expect 400 (limit above MAX_PAGE_SIZE)
+GET {{baseUrl}}/api/orders?limit=100000
+X-API-Key: {{apiKey}}

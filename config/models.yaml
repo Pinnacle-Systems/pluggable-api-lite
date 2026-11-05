@@ -1,0 +1,4 @@
+orders:
+  owner: PSSMGI
+  table: GTSORDER
+  schema: orders.yaml

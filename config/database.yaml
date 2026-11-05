@@ -1,0 +1,4 @@
+type: oracle
+connectString: ${DB_CONNECT_STRING}
+user: ${DB_USER}
+password: ${DB_PASSWORD}
