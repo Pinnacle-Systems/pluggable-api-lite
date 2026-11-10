@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Runs as the CloudPanel site user after GitHub Actions copies files into htdocs.
+# Runs as the CloudPanel site user after GitHub Actions overwrites htdocs.
 set -euo pipefail
 
 : "${APP_DIR:?APP_DIR is required}"
@@ -11,7 +11,7 @@ if [[ ! -s .env ]]; then
   exit 1
 fi
 
-# CloudPanel manages Node versions with nvm.
+# CloudPanel often uses nvm for Node versions; use it for installation.
 if [[ -s "$HOME/.nvm/nvm.sh" ]]; then
   # shellcheck disable=SC1091
   source "$HOME/.nvm/nvm.sh"
@@ -26,21 +26,12 @@ if ! command -v pnpm >/dev/null; then
   echo "pnpm must be installed for the CloudPanel site user." >&2
   exit 1
 fi
-if ! command -v pm2 >/dev/null; then
-  echo "PM2 must be installed for the CloudPanel site user." >&2
-  exit 1
-fi
 
 pnpm install --prod --frozen-lockfile
 
-# One in-place deployment. PM2 manages restarts under the site user.
-export NODE_ENV=production
-if pm2 describe pluggable-api-lite >/dev/null 2>&1; then
-  pm2 restart pluggable-api-lite --update-env
-else
-  pm2 start src/server.js --name pluggable-api-lite --node-args="--env-file=.env"
-fi
-pm2 save
+# systemd keeps the application running and restores it after server reboot.
+# Site user needs sudoers permission for this single restart command only.
+sudo -n /usr/bin/systemctl restart pluggable-api-lite.service
 
 healthy=false
 for attempt in {1..15}; do
@@ -52,7 +43,7 @@ for attempt in {1..15}; do
 done
 
 if [[ "$healthy" != true ]]; then
-  echo "Deployment health check failed. Check pm2 logs pluggable-api-lite." >&2
+  echo "Deployment health check failed. Check journalctl -u pluggable-api-lite.service." >&2
   exit 1
 fi
 
