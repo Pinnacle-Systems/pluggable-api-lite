@@ -43,6 +43,7 @@ jobs:
       DEPLOY_USER: ${{ vars.DEPLOY_USER }}
       DEPLOY_PORT: ${{ vars.DEPLOY_PORT }}
       DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+      APP_PORT: ${{ vars.APP_PORT }}
     steps:
       - uses: actions/checkout@v4
 
@@ -60,12 +61,14 @@ jobs:
           : "${DEPLOY_SSH_KEY:?Set DEPLOY_SSH_KEY in GitHub Actions secrets}"
           : "${DEPLOY_KNOWN_HOSTS:?Set DEPLOY_KNOWN_HOSTS in GitHub Actions secrets}"
           DEPLOY_PORT="${DEPLOY_PORT:-22}"
+          APP_PORT="${APP_PORT:-9765}"
 
           # Restrict remote path to a dedicated directory inside a Linux site user's home.
           if [[ ! "$DEPLOY_PATH" =~ ^/home/[A-Za-z0-9_-]+/[A-Za-z0-9_./-]+$ ]] ||
              [[ "$DEPLOY_PATH" == *..* ]] || [[ ! "$DEPLOY_PORT" =~ ^[0-9]+$ ]] ||
              [[ ! "$DEPLOY_USER" =~ ^[A-Za-z_][A-Za-z0-9_-]*$ ]] ||
-             [[ ! "$DEPLOY_HOST" =~ ^[A-Za-z0-9.-]+$ ]]; then
+             [[ ! "$DEPLOY_HOST" =~ ^[A-Za-z0-9.-]+$ ]] ||
+             [[ ! "$APP_PORT" =~ ^[0-9]+$ ]]; then
             echo "Invalid deployment variable (path, port, host or user)" >&2
             exit 1
           fi
@@ -90,4 +93,4 @@ jobs:
             ./ "$target:$release/"
 
           ssh "${ssh_opts[@]}" "$target" \
-            "APP_ROOT='$DEPLOY_PATH' RELEASE='$GITHUB_SHA' bash -se" < ops/deploy-release.sh
+            "APP_ROOT='$DEPLOY_PATH' RELEASE='$GITHUB_SHA' APP_PORT='$APP_PORT' bash -se" < ops/deploy-release.sh
