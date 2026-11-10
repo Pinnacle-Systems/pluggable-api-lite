@@ -1,0 +1,93 @@
+name: CI and VPS deploy
+
+on:
+  push:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pluggable-api-lite-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  test:
+    name: Install and test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.13.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test
+
+  deploy:
+    name: Deploy to Hostinger VPS
+    needs: test
+    if: >-
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+      github.ref == 'refs/heads/main' &&
+      vars.DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+      DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+      DEPLOY_PORT: ${{ vars.DEPLOY_PORT }}
+      DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Copy release and activate
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          : "${DEPLOY_HOST:?Set DEPLOY_HOST in GitHub Actions variables}"
+          : "${DEPLOY_USER:?Set DEPLOY_USER in GitHub Actions variables}"
+          : "${DEPLOY_PATH:?Set DEPLOY_PATH in GitHub Actions variables}"
+          : "${DEPLOY_SSH_KEY:?Set DEPLOY_SSH_KEY in GitHub Actions secrets}"
+          : "${DEPLOY_KNOWN_HOSTS:?Set DEPLOY_KNOWN_HOSTS in GitHub Actions secrets}"
+          DEPLOY_PORT="${DEPLOY_PORT:-22}"
+
+          # Restrict remote path to a dedicated directory inside a Linux site user's home.
+          if [[ ! "$DEPLOY_PATH" =~ ^/home/[A-Za-z0-9_-]+/[A-Za-z0-9_./-]+$ ]] ||
+             [[ "$DEPLOY_PATH" == *..* ]] || [[ ! "$DEPLOY_PORT" =~ ^[0-9]+$ ]] ||
+             [[ ! "$DEPLOY_USER" =~ ^[A-Za-z_][A-Za-z0-9_-]*$ ]] ||
+             [[ ! "$DEPLOY_HOST" =~ ^[A-Za-z0-9.-]+$ ]]; then
+            echo "Invalid deployment variable (path, port, host or user)" >&2
+            exit 1
+          fi
+
+          umask 077
+          mkdir -p "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_SSH_KEY" > "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+
+          ssh_opts=(-p "$DEPLOY_PORT" -i "$HOME/.ssh/id_ed25519"
+            -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes
+            -o ConnectTimeout=15)
+          target="$DEPLOY_USER@$DEPLOY_HOST"
+          release="$DEPLOY_PATH/releases/$GITHUB_SHA"
+
+          ssh "${ssh_opts[@]}" "$target" "mkdir -p -- '$release'"
+          rsync -az --delete \
+            --exclude='.git/' --exclude='.github/' --exclude='node_modules/' \
+            --exclude='.env' --exclude='.env.*' --exclude='tests/' \
+            --exclude='docs/' --exclude='ops/' \
+            -e "ssh -p $DEPLOY_PORT -i $HOME/.ssh/id_ed25519 -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes" \
+            ./ "$target:$release/"
+
+          ssh "${ssh_opts[@]}" "$target" \
+            "APP_ROOT='$DEPLOY_PATH' RELEASE='$GITHUB_SHA' bash -se" < ops/deploy-release.sh
