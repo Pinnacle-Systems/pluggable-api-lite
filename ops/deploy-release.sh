@@ -5,6 +5,7 @@ set -euo pipefail
 : "${APP_ROOT:?APP_ROOT is required}"
 : "${RELEASE:?RELEASE is required}"
 
+APP_PORT="${APP_PORT:-9765}"
 release_dir="$APP_ROOT/releases/$RELEASE"
 cd "$release_dir"
 
@@ -53,7 +54,7 @@ fi
 
 healthy=false
 for attempt in {1..15}; do
-  if curl -fsS --max-time 3 http://127.0.0.1:3000/health 2>/dev/null | grep -q '"status":"ok"'; then
+  if curl -fsS --max-time 3 http://127.0.0.1:$APP_PORT/health 2>/dev/null | grep -q '"status":"ok"'; then
     healthy=true
     break
   fi
