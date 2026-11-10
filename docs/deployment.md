@@ -129,9 +129,7 @@ The resulting unit is normally
 `pm2-pinnaclesystems-bsa-erp.service`. No cron or separate systemd
 service for this Node application is required.
 
-The GitHub deployment script starts/reloads the API and runs `pm2 save`
-**after the health check succeeds** so the saved PM2 process list is
-restored on reboot. After initial deployment, verify:
+The GitHub deployment script starts **the Node executable directly under PM2**, not `src/server.js` as a PM2-managed JavaScript script. This matters because `src/server.js` uses `import.meta.main` and must run as Node's entry point. The script replaces the PM2 process on deployment (brief downtime) and runs `pm2 save` **after the health check succeeds**, so the process is restored on reboot. After initial deployment, verify:
 
 ```sh
 pm2 status
@@ -231,8 +229,8 @@ Avoid placing production DB credentials or the API key in GitHub.
 4. In GitHub, select **Actions → CI and VPS deploy → Run workflow**,
    branch **main**.
 5. The tests must pass before GitHub deploys files.
-6. GitHub uploads code in place, installs production dependencies, reloads
-   (or initially starts) `pluggable-api-lite` under PM2, validates
+6. GitHub uploads code in place, installs production dependencies, restarts
+   `pluggable-api-lite` as a direct Node executable under PM2, validates
    `127.0.0.1:9765/health` and runs `pm2 save`.
 
 After deployment, check:
