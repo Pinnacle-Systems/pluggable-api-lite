@@ -111,11 +111,13 @@ jobs:
             pnpm install --prod --frozen-lockfile
 
             export NODE_ENV=production
+            # Run Node as the actual entrypoint. PM2's JS wrapper imports ESM
+            # modules, so import.meta.main in src/server.js would be false.
+            # A single-process API can tolerate a short restart on deployment.
             if pm2 describe pluggable-api-lite >/dev/null 2>&1; then
-              pm2 reload pluggable-api-lite --update-env
-            else
-              pm2 start src/server.js --name pluggable-api-lite --node-args="--env-file=.env"
+              pm2 delete pluggable-api-lite
             fi
+            pm2 start "$(command -v node)" --name pluggable-api-lite --interpreter none -- --env-file=.env src/server.js
 
             healthy=false
             for attempt in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
