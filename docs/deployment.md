@@ -1,6 +1,6 @@
-# Hostinger VPS / CloudPanel deployment
+# Hostinger VPS / CloudPanel deployment — BSA ERP
 
-This project deploys the **read-only** Node.js API using GitHub Actions, SSH and a
+This project deploys the **read-only** Node.js API to VPS `193.203.160.198` using GitHub Actions, SSH and a
 systemd service. No Docker or database migration is involved.
 
 The workflow is in `.github/workflows/ci-deploy.yml`.
@@ -9,17 +9,17 @@ The workflow is in `.github/workflows/ci-deploy.yml`.
   **only when** GitHub Actions variable `DEPLOY_ENABLED` is `true`.
 - A release is copied to `DEPLOY_PATH/releases/<git-sha>`, dependencies are
   installed on the VPS, `current` is updated, the service is restarted, and
-  `http://127.0.0.1:3000/health` is checked.
+  `http://127.0.0.1:9765/health` is checked.
 - On restart/health failure, the previous `current` symlink is restored if
   one exists. Old releases remain on disk for manual cleanup.
 
 ## 1. CloudPanel (one-time)
 
-1. Create a **Node.js Site** for an API hostname such as `api.example.com`.
-   Choose **Node.js 24** and **App Port 3000**. CloudPanel proxies the public
+1. Create a **Node.js Site** for an API hostname such as `bsa-erp.pinnaclesystems.co.in`.
+   Choose **Node.js 24** and **App Port 9765**. The currently configured CloudPanel site is `bsa-erp.pinnaclesystems.co.in` (VPS `193.203.160.198`), with Site User `pinnaclesystems-bsa-erp`. CloudPanel proxies the public
    HTTPS hostname to the local Node.js process; enable a valid TLS certificate.
 2. Note the **Site User**. Use this non-root user for SSH deployment and to run
-   the Node.js service. You do not need to expose TCP port 3000 publicly.
+   the Node.js service. You do not need to expose TCP port 9765 publicly.
 3. Make sure that the VPS can reach the existing Oracle database over the
    required network/port. Keep Oracle unexposed to the public internet.
 
@@ -56,10 +56,10 @@ system library search path. Oracle 11g requires Thick mode with the 19c client.
 As the Site User, create a dedicated deployment directory, for example:
 
 ```sh
-mkdir -p ~/apps/pluggable-api-lite/releases ~/apps/pluggable-api-lite/shared
-chmod 700 ~/apps/pluggable-api-lite/shared
-nano ~/apps/pluggable-api-lite/shared/.env
-chmod 600 ~/apps/pluggable-api-lite/shared/.env
+mkdir -p /home/pinnaclesystems-bsa-erp/apps/pluggable-api-lite/releases /home/pinnaclesystems-bsa-erp/apps/pluggable-api-lite/shared
+chmod 700 /home/pinnaclesystems-bsa-erp/apps/pluggable-api-lite/shared
+nano /home/pinnaclesystems-bsa-erp/apps/pluggable-api-lite/shared/.env
+chmod 600 /home/pinnaclesystems-bsa-erp/apps/pluggable-api-lite/shared/.env
 ```
 
 Fill in the server-side `.env`:
@@ -70,7 +70,7 @@ DB_USER=<read-only-user>
 DB_PASSWORD=<secret>
 API_KEY=<long-random-secret>
 HOST=127.0.0.1
-PORT=3000
+PORT=9765
 ```
 
 This file stays **only on the VPS**. The workflow links it into each release.
@@ -89,9 +89,9 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=<site-user>
-Group=<site-user>
-WorkingDirectory=/home/<site-user>/apps/pluggable-api-lite/current
+User=pinnaclesystems-bsa-erp
+Group=pinnaclesystems-bsa-erp
+WorkingDirectory=/home/pinnaclesystems-bsa-erp/apps/pluggable-api-lite/current
 Environment=NODE_ENV=production
 ExecStart=<absolute-path-to-node> --env-file=.env src/server.js
 Restart=on-failure
@@ -101,7 +101,7 @@ RestartSec=5
 WantedBy=multi-user.target
 ```
 
-Replace `<site-user>` and `<absolute-path-to-node>` with real values.
+Replace `pinnaclesystems-bsa-erp` and `<absolute-path-to-node>` with real values.
 The node executable path must be the output of `command -v node` run as the
 Site User, not a wildcard or a literal placeholder.
 
@@ -117,10 +117,10 @@ a password. As root use `sudo visudo -f /etc/sudoers.d/pluggable-api-lite-deploy
 and add:
 
 ```text
-<site-user> ALL=(root) NOPASSWD: /usr/bin/systemctl restart pluggable-api-lite.service
+pinnaclesystems-bsa-erp ALL=(root) NOPASSWD: /usr/bin/systemctl restart pluggable-api-lite.service
 ```
 
-Substitute the actual Site User and verify your `systemctl` executable path.
+Verify your `systemctl` executable path; substitute it if not `/usr/bin/systemctl`.
 This is much safer than granting general passwordless sudo.
 
 ## 5. Configure SSH access for GitHub Actions
@@ -147,10 +147,11 @@ GitHub: repository **Settings → Secrets and variables → Actions**.
 
 | Name | Example / meaning |
 |---|---|
-| `DEPLOY_HOST` | `api.example.com` or VPS public IPv4 |
-| `DEPLOY_USER` | CloudPanel Site User (non-root) |
+| `DEPLOY_HOST` | `193.203.160.198` |
+| `APP_PORT` | `9765` |
+| `DEPLOY_USER` | `pinnaclesystems-bsa-erp` |
 | `DEPLOY_PORT` | `22` (optional; defaults to 22) |
-| `DEPLOY_PATH` | `/home/<site-user>/apps/pluggable-api-lite` |
+| `DEPLOY_PATH` | `/home/pinnaclesystems-bsa-erp/apps/pluggable-api-lite` |
 | `DEPLOY_ENABLED` | Set to `true` **last** after server preparation |
 
 **Repository secrets:**
@@ -170,7 +171,7 @@ Do not use GitHub Actions to store or overwrite the production `.env`.
 3. Set `DEPLOY_ENABLED=true` in Actions variables.
 4. Use **Actions → CI and VPS deploy → Run workflow** on `main`, or push to
    `main`. The test job must pass before deployment.
-5. Confirm `https://api.example.com/health` returns `{"status":"ok"}`.
+5. Confirm `https://bsa-erp.pinnaclesystems.co.in/health` returns `{"status":"ok"}`.
    Then test an authorized `GET /api/<model>` with your API key.
 
 Troubleshoot on the VPS:
@@ -178,7 +179,7 @@ Troubleshoot on the VPS:
 ```sh
 sudo systemctl status pluggable-api-lite.service
 sudo journalctl -u pluggable-api-lite.service -n 100 --no-pager
-curl -fsS http://127.0.0.1:3000/health
+curl -fsS http://127.0.0.1:9765/health
 ```
 
 If first deploy fails, there is no previous release to roll back to; fix the
