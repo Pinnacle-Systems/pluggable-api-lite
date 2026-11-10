@@ -211,7 +211,6 @@ Set these **Variables**:
 | `DEPLOY_PORT` | `22` (unless SSH uses another port) |
 | `DEPLOY_PATH` | `/home/pinnaclesystems-bsa-erp/htdocs/bsa-erp.pinnaclesystems.co.in` |
 | `APP_PORT` | `9765` |
-| `DEPLOY_ENABLED` | Leave unset until the VPS is ready; then `true` |
 
 Set these **Secrets**:
 
@@ -228,7 +227,7 @@ Avoid placing production DB credentials or the API key in GitHub.
 1. Merge the CI/CD pull request after checks pass.
 2. Finish the server prerequisites: Node 24, pnpm, PM2, Instant Client 19c,
    `.env`, SSH key and systemd startup for PM2.
-3. Add all GitHub settings, then set `DEPLOY_ENABLED=true`.
+3. Add the GitHub Actions variables and secrets above.
 4. In GitHub, select **Actions → CI and VPS deploy → Run workflow**,
    branch **main**.
 5. The tests must pass before GitHub deploys files.
