@@ -82,7 +82,7 @@ jobs:
           ARGS: "-az --stats"
           SSH_CMD_ARGS: "-o StrictHostKeyChecking=yes"
 
-      - name: Install and reload API with PM2
+      - name: Install and restart API with PM2
         uses: appleboy/ssh-action@v1.2.5
         env:
           TARGET_DIR: ${{ env.DEPLOY_PATH }}
