@@ -3,9 +3,14 @@ import { basename, join } from 'node:path';
 import { parse } from 'yaml';
 
 // Oracle 11g identifiers: up to 30 chars, letters/digits/_/$/#, starting with a letter.
+// Spelling and case are preserved exactly; the engine always quotes them (Oracle quoted identifiers are case-sensitive).
 const DB_IDENTIFIER = /^[A-Za-z][A-Za-z0-9_$#]{0,29}$/;
-// Field names become Oracle column aliases, so the same length limit applies.
-const FIELD_NAME = /^[A-Za-z][A-Za-z0-9_]{0,29}$/;
+// Column names may additionally contain inner spaces (e.g. "SR NO"). Knex splits identifiers on " as ", so reject that.
+const COLUMN_IDENTIFIER = /^[A-Za-z]([A-Za-z0-9_$# ]{0,28}[A-Za-z0-9_$#])?$/;
+const hasAliasSyntax = (name) => /\sas\s/i.test(name);
+// Field names become quoted Oracle column aliases, so the same length limit applies. Inner spaces are allowed
+// (e.g. "SR NO"); leading/trailing whitespace, quotes and punctuation are not.
+const FIELD_NAME = /^[A-Za-z]([A-Za-z0-9_ ]{0,28}[A-Za-z0-9_])?$/;
 const MODEL_NAME = /^[A-Za-z][A-Za-z0-9_-]*$/;
 const FIELD_TYPES = ['string', 'integer', 'decimal', 'date'];
 // `page`/`limit` are query parameters; `rownum_` is the helper column added by pagination.
@@ -51,8 +56,8 @@ function loadModel(configDir, name, entry) {
   if (!entry || typeof entry !== 'object') fail(`${where} must be an object`);
 
   const { owner, table, schema } = entry;
-  if (owner !== undefined && !DB_IDENTIFIER.test(owner)) fail(`${where}: invalid owner`);
-  if (!DB_IDENTIFIER.test(table ?? '')) fail(`${where}: invalid table`);
+  if (owner !== undefined && (typeof owner !== 'string' || !DB_IDENTIFIER.test(owner))) fail(`${where}: invalid owner`);
+  if (typeof table !== 'string' || !DB_IDENTIFIER.test(table)) fail(`${where}: invalid table`);
   // Schema files must live directly in config/schemas.
   if (typeof schema !== 'string' || basename(schema) !== schema) fail(`${where}: invalid schema file`);
 
@@ -62,20 +67,21 @@ function loadModel(configDir, name, entry) {
 
   const fields = {};
   for (const [field, spec] of Object.entries(def.fields ?? {})) {
-    if (!FIELD_NAME.test(field) || RESERVED_FIELDS.includes(field.toLowerCase())) {
+    if (!FIELD_NAME.test(field) || hasAliasSyntax(field) || RESERVED_FIELDS.includes(field.toLowerCase())) {
       fail(`${at}: invalid field name "${field}"`);
     }
-    if (!DB_IDENTIFIER.test(spec?.column ?? '')) fail(`${at}: field "${field}" has an invalid column`);
+    const column = spec?.column ?? '';
+    if (typeof column !== 'string' || !COLUMN_IDENTIFIER.test(column) || hasAliasSyntax(column)) fail(`${at}: field "${field}" has an invalid column`);
     if (!FIELD_TYPES.includes(spec.type)) {
       fail(`${at}: field "${field}" type must be one of ${FIELD_TYPES.join(', ')}`);
     }
-    // Oracle folds unquoted identifiers to upper case; the engine quotes them, so store them upper-cased.
-    fields[field] = { column: spec.column.toUpperCase(), type: spec.type };
+    fields[field] = { column, type: spec.type };
   }
   if (!Object.keys(fields).length) fail(`${at}: fields must not be empty`);
-  if (!fields[def.primaryKey]) fail(`${at}: primaryKey must be a defined field`);
-
   const policy = def.policy ?? {};
+  // primaryKey is optional for list-only models. When set, it is the ordering key for pagination.
+  if (def.primaryKey !== undefined && !fields[def.primaryKey]) fail(`${at}: primaryKey must be a defined field`);
+  if (policy.get === true && def.primaryKey === undefined) fail(`${at}: policy.get requires a primaryKey`);
   const filters = policy.filters ?? [];
   for (const f of filters) {
     if (!fields[f]) fail(`${at}: policy.filters references unknown field "${f}"`);
@@ -83,8 +89,8 @@ function loadModel(configDir, name, entry) {
 
   return {
     name,
-    owner: owner?.toUpperCase(),
-    table: table.toUpperCase(),
+    owner,
+    table,
     primaryKey: def.primaryKey,
     fields,
     filters: new Set(filters),

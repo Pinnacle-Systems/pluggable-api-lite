@@ -1,0 +1,94 @@
+# Read-only API projection for PSSBSA.ORDERALLOWDETINT.
+# The field names and column names intentionally match the Oracle DDL exactly.
+# No declared primary key exists in the supplied DDL; this is a provisional
+# ordering column only. get stays false until uniqueness is verified.
+primaryKey: SRNO
+
+fields:
+  SRNO:
+    column: SRNO
+    type: integer
+  erp_no:
+    column: erp_no
+    type: string
+  orderdate:
+    column: orderdate
+    type: date
+  product_type:
+    column: product_type
+    type: string
+  style_no:
+    column: style_no
+    type: string
+  colour:
+    column: colour
+    type: string
+  sizes:
+    column: sizes
+    type: string
+  po_no:
+    column: po_no
+    type: string
+  po_date:
+    column: po_date
+    type: date
+  unit_of_measure:
+    column: unit_of_measure
+    type: string
+  confirm_qty:
+    column: confirm_qty
+    type: decimal
+  extrapolation:
+    column: extrapolation
+    type: decimal
+  order_qty:
+    column: order_qty
+    type: decimal
+  customer_name:
+    column: customer_name
+    type: string
+  delivery_date:
+    column: delivery_date
+    type: date
+  season:
+    column: season
+    type: string
+  product_desc:
+    column: product_desc
+    type: string
+  ordertime:
+    column: ordertime
+    type: string
+  item_no:
+    column: item_no
+    type: integer
+  articlecode:
+    column: articlecode
+    type: string
+  INSEAM:
+    column: INSEAM
+    type: string
+  description:
+    column: description
+    type: string
+  country_desc:
+    column: country_desc
+    type: string
+  sam:
+    column: sam
+    type: decimal
+  Recd_Date:
+    column: Recd_Date
+    type: date
+  ISCOMPLETE:
+    column: ISCOMPLETE
+    type: integer
+
+policy:
+  list: true
+  get: false
+  filters:
+    - erp_no
+    - style_no
+    - customer_name
+    - ISCOMPLETE

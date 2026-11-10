@@ -5,32 +5,32 @@
 GET {{baseUrl}}/health
 
 ### List
-GET {{baseUrl}}/api/orders
+GET {{baseUrl}}/api/cmtEntries
 X-API-Key: {{apiKey}}
 
 ### Get one by primary key
-GET {{baseUrl}}/api/orders/1785211070999
-X-API-Key: {{apiKey}}
+# GET {{baseUrl}}/api/cmtEntries
+# X-API-Key: {{apiKey}}
 
 ### Exact-match filter
-GET {{baseUrl}}/api/orders?financialYear=1774928069228
+GET {{baseUrl}}/api/cmtEntries?erp_no=PSS/25/0002
 X-API-Key: {{apiKey}}
 
 ### Pagination
-GET {{baseUrl}}/api/orders?page=2&limit=20
+GET {{baseUrl}}/api/cmtEntries?page=2&limit=50
 X-API-Key: {{apiKey}}
 
 ### Expect 401 (missing key)
-GET {{baseUrl}}/api/orders
+GET {{baseUrl}}/api/cmtEntries
 
 ### Expect 404 (unknown model)
 GET {{baseUrl}}/api/nope
 X-API-Key: {{apiKey}}
 
 ### Expect 400 (field not in policy.filters)
-GET {{baseUrl}}/api/orders?balance=100
+GET {{baseUrl}}/api/cmtEntries?balance=100
 X-API-Key: {{apiKey}}
 
 ### Expect 400 (limit above MAX_PAGE_SIZE)
-GET {{baseUrl}}/api/orders?limit=100000
+GET {{baseUrl}}/api/cmtEntries?limit=100000
 X-API-Key: {{apiKey}}

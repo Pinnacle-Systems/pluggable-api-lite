@@ -45,7 +45,9 @@ export function createReadEngine(db, models) {
         ? db.raw(`TO_CHAR(??, '${DATE_FORMAT}') as ??`, [column, name])
         : db.raw('?? as ??', [column, name]),
     );
-    return query.select(columns).orderBy(model.fields[model.primaryKey].column);
+    query.select(columns);
+    // Without a primaryKey there is no ordering key, so paging order is whatever Oracle returns.
+    return model.primaryKey ? query.orderBy(model.fields[model.primaryKey].column) : query;
   };
 
   const whereEquals = (query, field, name, value) => {

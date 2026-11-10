@@ -1,0 +1,70 @@
+# Read-only API projection for PSSBSA.BOMINT.
+# The field names and column names intentionally match the Oracle DDL exactly.
+# No declared primary key exists in the supplied DDL; this is a provisional
+# ordering column only. get stays false until uniqueness is verified.
+primaryKey: SRNO
+
+fields:
+  SRNO:
+    column: SRNO
+    type: integer
+  UNIT_CODE:
+    column: UNIT_CODE
+    type: string
+  ERP_NO:
+    column: ERP_NO
+    type: string
+  ARTICLE_CODE:
+    column: ARTICLE_CODE
+    type: string
+  STYLE_NO:
+    column: STYLE_NO
+    type: string
+  COLOUR:
+    column: COLOUR
+    type: string
+  SIZES:
+    column: SIZES
+    type: string
+  INSEAM:
+    column: INSEAM
+    type: string
+  GARMENT_UOM:
+    column: GARMENT_UOM
+    type: string
+  FABRIC_CODE:
+    column: FABRIC_CODE
+    type: string
+  FABRIC_DESC:
+    column: FABRIC_DESC
+    type: string
+  FABRIC_COLOUR:
+    column: FABRIC_COLOUR
+    type: string
+  FABRIC_SUPPLIER:
+    column: FABRIC_SUPPLIER
+    type: string
+  FABRIC_TYPE:
+    column: FABRIC_TYPE
+    type: string
+  FABRIC_CONSUMPTION:
+    column: FABRIC_CONSUMPTION
+    type: decimal
+  FABRIC_UOM:
+    column: FABRIC_UOM
+    type: string
+  RECD_DATE:
+    column: RECD_DATE
+    type: date
+  ISCOMPLETE:
+    column: ISCOMPLETE
+    type: string
+
+policy:
+  list: true
+  get: false
+  filters:
+    - ERP_NO
+    - STYLE_NO
+    - FABRIC_CODE
+    - ISCOMPLETE

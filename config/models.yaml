@@ -1,4 +1,19 @@
-orders:
-  owner: PSSMGI
-  table: GTSORDER
-  schema: orders.yaml
+orderAllowanceDetails:
+  owner: PSSBSA
+  table: ORDERALLOWDETINT
+  schema: order-allowance-details.yaml
+
+fabricEntries:
+  owner: PSSBSA
+  table: FABRICINT
+  schema: fabric-entries.yaml
+
+cmtEntries:
+  owner: PSSBSA
+  table: CMTINT
+  schema: cmt-entries.yaml
+
+bomItems:
+  owner: PSSBSA
+  table: BOMINT
+  schema: bom-items.yaml

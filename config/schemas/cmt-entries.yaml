@@ -1,0 +1,42 @@
+# Read-only API projection for PSSBSA.CMTINT.
+# The field names and column names intentionally match the Oracle DDL exactly.
+# No declared primary key exists in the supplied DDL; this is a provisional
+# ordering column only. get stays false until uniqueness is verified.
+primaryKey: "SR NO"
+
+fields:
+  "SR NO":
+    column: "SR NO"
+    type: integer
+  erp_no:
+    column: erp_no
+    type: string
+  resouce_code:
+    column: resouce_code
+    type: integer
+  code:
+    column: code
+    type: string
+  description:
+    column: description
+    type: string
+  style_no:
+    column: style_no
+    type: string
+  budget_eff:
+    column: budget_eff
+    type: decimal
+  sam:
+    column: sam
+    type: decimal
+  ISCOMPLETE:
+    column: ISCOMPLETE
+    type: string
+
+policy:
+  list: true
+  get: false
+  filters:
+    - erp_no
+    - style_no
+    - ISCOMPLETE

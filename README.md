@@ -52,7 +52,7 @@ Value formats: `decimal`/`integer` are JSON numbers; `date` is `YYYY-MM-DDTHH:MI
 2. Create `config/schemas/orders.yaml`:
 
    ```yaml
-   primaryKey: orderNo     # must be one of the fields
+   primaryKey: orderNo     # optional; must be one of the fields. Required when get: true
    fields:
      orderNo:   { column: ORD_NO, type: integer }   # string | integer | decimal | date
      orderDate: { column: ORD_DT, type: date }
@@ -64,7 +64,15 @@ Value formats: `decimal`/`integer` are JSON numbers; `date` is `YYYY-MM-DDTHH:MI
 
 3. Restart. `GET /api/orders` now works.
 
-Only configured models and columns are reachable. Identifiers are validated at startup and upper-cased (Oracle's default folding); tables or columns created with quoted mixed-case names are not supported. Results are ordered by the primary key so pages are stable.
+Only configured models and columns are reachable.
+
+**Identifiers.** Owner, table and column names are validated at startup and always sent to Oracle as quoted identifiers, with the spelling and case exactly as written in YAML (nothing is upper- or lower-cased). Write the name as Oracle stores it: `SRNO` for a conventional column, `erp_no` or `Recd_Date` for a column created with a quoted lowercase/mixed-case name. Do not put quotation marks in the YAML value.
+
+- Allowed: letters (any case), digits, `_`, `$`, `#`, starting with a letter, up to 30 characters. Column names may also contain inner spaces (`column: SR NO` becomes `"SR NO"`).
+- Rejected at startup: empty names, leading/trailing spaces, quotes, semicolons, comments, dots, commas, parentheses, ` as `, and anything else outside the allowlist.
+- Owner and table follow the same case rule, so a table created unquoted must be written in upper case (`GTSORDER`, not `gtsorder`).
+
+**Primary key and ordering.** `primaryKey` is optional for list-only models. If set, results are ordered by it so pages are stable; if omitted, the list has no `ORDER BY`. `policy.get: true` requires a `primaryKey`. Several models (`order-allowance-details`, `fabric-entries`, `cmt-entries`, `bom-items`) point `primaryKey` at a serial-number column that is *not* a declared Oracle key and has not been verified unique, so they keep `get: false`. Until uniqueness is confirmed, pagination on those models can repeat or skip rows when serial numbers are duplicated or rows change between page requests.
 
 ## Known limits
 

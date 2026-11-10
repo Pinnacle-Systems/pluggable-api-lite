@@ -1,0 +1,112 @@
+# Read-only API projection for PSSBSA.FABRICINT.
+# The field names and column names intentionally match the Oracle DDL exactly.
+# No declared primary key exists in the supplied DDL; this is a provisional
+# ordering column only. get stays false until uniqueness is verified.
+primaryKey: srno
+
+fields:
+  srno:
+    column: srno
+    type: integer
+  unit_code1:
+    column: unit_code1
+    type: string
+  material_dc:
+    column: material_dc
+    type: string
+  item_no:
+    column: item_no
+    type: integer
+  color:
+    column: color
+    type: string
+  posting_date:
+    column: posting_date
+    type: date
+  entry_date:
+    column: entry_date
+    type: date
+  entry_time:
+    column: entry_time
+    type: decimal
+  user_id:
+    column: user_id
+    type: string
+  qty:
+    column: qty
+    type: decimal
+  uom:
+    column: uom
+    type: string
+  roll_no:
+    column: roll_no
+    type: string
+  material:
+    column: material
+    type: string
+  material_desc:
+    column: material_desc
+    type: string
+  movement_type:
+    column: movement_type
+    type: integer
+  unit_code:
+    column: unit_code
+    type: integer
+  location:
+    column: location
+    type: string
+  Supplier_code:
+    column: Supplier_code
+    type: string
+  supplier_name:
+    column: supplier_name
+    type: string
+  Recd_Date:
+    column: Recd_Date
+    type: date
+  shade:
+    column: shade
+    type: string
+  gsm:
+    column: gsm
+    type: string
+  roll_length:
+    column: roll_length
+    type: decimal
+  length_mtr:
+    column: length_mtr
+    type: decimal
+  actual_width:
+    column: actual_width
+    type: decimal
+  sh_length:
+    column: sh_length
+    type: string
+  sh_width:
+    column: sh_width
+    type: string
+  grouping:
+    column: grouping
+    type: string
+  customer_name:
+    column: customer_name
+    type: string
+  style_no:
+    column: style_no
+    type: string
+  ISCOMPLETE:
+    column: ISCOMPLETE
+    type: integer
+  erp_no:
+    column: erp_no
+    type: string
+
+policy:
+  list: true
+  get: false
+  filters:
+    - erp_no
+    - item_no
+    - style_no
+    - ISCOMPLETE
