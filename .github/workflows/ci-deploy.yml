@@ -1,0 +1,133 @@
+name: CI and VPS deploy
+
+on:
+  push:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pluggable-api-lite-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  test:
+    name: Install and test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.13.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test
+
+  deploy:
+    name: Manually deploy to CloudPanel
+    needs: test
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+      DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+      DEPLOY_PORT: ${{ vars.DEPLOY_PORT }}
+      DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+      APP_PORT: ${{ vars.APP_PORT }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify deployment settings and SSH host key
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_HOST_FINGERPRINT: ${{ secrets.DEPLOY_HOST_FINGERPRINT }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${DEPLOY_HOST:?Set DEPLOY_HOST in Actions variables}"
+          : "${DEPLOY_USER:?Set DEPLOY_USER in Actions variables}"
+          : "${DEPLOY_PORT:?Set DEPLOY_PORT in Actions variables}"
+          : "${DEPLOY_PATH:?Set DEPLOY_PATH in Actions variables}"
+          : "${APP_PORT:?Set APP_PORT in Actions variables}"
+          : "${DEPLOY_SSH_KEY:?Set DEPLOY_SSH_KEY in Actions secrets}"
+          : "${DEPLOY_KNOWN_HOSTS:?Set DEPLOY_KNOWN_HOSTS in Actions secrets}"
+          : "${DEPLOY_HOST_FINGERPRINT:?Set DEPLOY_HOST_FINGERPRINT in Actions secrets}"
+
+          # Verified known_hosts must be supplied by an administrator.
+          # The ssh-deploy action otherwise defaults to disabling host-key checks.
+          umask 077
+          mkdir -p "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+
+      - name: Deploy application files
+        uses: easingthemes/ssh-deploy@v5.1.0
+        with:
+          SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          REMOTE_HOST: ${{ env.DEPLOY_HOST }}
+          REMOTE_USER: ${{ env.DEPLOY_USER }}
+          REMOTE_PORT: ${{ env.DEPLOY_PORT }}
+          TARGET: ${{ env.DEPLOY_PATH }}/
+          # Only tracked application code; .env and CloudPanel's .well-known stay on server.
+          SOURCE: "package.json pnpm-lock.yaml pnpm-workspace.yaml src config"
+          ARGS: "-az --stats"
+          SSH_CMD_ARGS: "-o StrictHostKeyChecking=yes"
+
+      - name: Install and reload API with PM2
+        uses: appleboy/ssh-action@v1.2.5
+        env:
+          TARGET_DIR: ${{ env.DEPLOY_PATH }}
+          APP_PORT: ${{ env.APP_PORT }}
+        with:
+          host: ${{ env.DEPLOY_HOST }}
+          username: ${{ env.DEPLOY_USER }}
+          port: ${{ env.DEPLOY_PORT }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          fingerprint: ${{ secrets.DEPLOY_HOST_FINGERPRINT }}
+          envs: TARGET_DIR,APP_PORT
+          command_timeout: 10m
+          script: |
+            set -eu
+
+            if [ -s "$HOME/.nvm/nvm.sh" ]; then
+              . "$HOME/.nvm/nvm.sh"
+              nvm use 24 >/dev/null
+            fi
+            test "$(node -p 'process.versions.node.split(".")[0]')" = "24"
+            command -v pnpm
+            command -v pm2
+
+            cd "$TARGET_DIR"
+            test -s .env
+            pnpm install --prod --frozen-lockfile
+
+            export NODE_ENV=production
+            if pm2 describe pluggable-api-lite >/dev/null 2>&1; then
+              pm2 reload pluggable-api-lite --update-env
+            else
+              pm2 start src/server.js --name pluggable-api-lite --node-args="--env-file=.env"
+            fi
+
+            healthy=false
+            for attempt in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
+              if curl -fsS --max-time 3 "http://127.0.0.1:$APP_PORT/health" 2>/dev/null | grep -q '"status":"ok"'; then
+                healthy=true
+                break
+              fi
+              sleep 2
+            done
+            if [ "$healthy" != true ]; then
+              echo "Health check failed; inspect: pm2 logs pluggable-api-lite" >&2
+              exit 1
+            fi
+            pm2 save
+            echo "Deployment complete: /health OK"
