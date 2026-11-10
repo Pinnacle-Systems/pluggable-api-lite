@@ -29,9 +29,20 @@ fi
 
 pnpm install --prod --frozen-lockfile
 
-# systemd keeps the application running and restores it after server reboot.
-# Site user needs sudoers permission for this single restart command only.
-sudo -n /usr/bin/systemctl restart pluggable-api-lite.service
+# PM2 manages the Node app. A separate PM2 systemd startup service
+# (configured once via "pm2 startup") restores saved processes after reboot.
+if ! command -v pm2 >/dev/null; then
+  echo "PM2 is required for the CloudPanel site user." >&2
+  exit 1
+fi
+
+export NODE_ENV=production
+if pm2 describe pluggable-api-lite >/dev/null 2>&1; then
+  pm2 restart pluggable-api-lite --update-env
+else
+  pm2 start src/server.js --name pluggable-api-lite --node-args="--env-file=.env"
+fi
+pm2 save
 
 healthy=false
 for attempt in {1..15}; do
@@ -43,7 +54,7 @@ for attempt in {1..15}; do
 done
 
 if [[ "$healthy" != true ]]; then
-  echo "Deployment health check failed. Check journalctl -u pluggable-api-lite.service." >&2
+  echo "Deployment health check failed. Check pm2 logs pluggable-api-lite." >&2
   exit 1
 fi
 
